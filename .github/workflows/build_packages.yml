@@ -73,47 +73,7 @@ jobs:
           path: combined-wheels/
 
       - name: Generate index page
-        run: |
-          mkdir -p site
-          cd site
-          cat > index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>PyPI Specific Binary Packages</title>
-              <style>
-                  body { font-family: Arial, sans-serif; margin: 40px; }
-                  h1 { color: #333; }
-                  .package-list { margin: 20px 0; }
-                  .wheel-link { display: block; margin: 5px 0; }
-              </style>
-          </head>
-          <body>
-              <h1>PyPI Specific Binary Packages</h1>
-              <p>Pre-built wheels for packages that can't be distributed
-                 as manylinux wheels.</p>
-              <div class="package-list">
-                  <h2>Available Packages:</h2>
-          EOF
-
-          for wheel in ../combined-wheels/*.whl; do
-              if [ -f "$wheel" ]; then
-                  filename=$(basename "$wheel")
-                  echo "        <a href=\"wheels/$filename\" \
-                    class=\"wheel-link\">$filename</a>" >> index.html
-              fi
-          done
-
-          cat >> index.html << 'EOF'
-              </div>
-              <p><em>Generated automatically by GitHub Actions</em></p>
-          </body>
-          </html>
-          EOF
-
-          # Copy wheels to site directory
-          mkdir -p wheels
-          cp ../combined-wheels/*.whl wheels/ 2>/dev/null || true
+        run: ./scripts/generate-pypi-index.sh
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -158,40 +118,6 @@ jobs:
           path: release-wheels
 
       - name: Create release
-        run: |
-          # Generate release tag based on date
-          RELEASE_TAG="release-$(date +'%Y%m%d-%H%M%S')"
-
-          # Create release notes
-          cat > release-notes.md << EOF
-          # PyPI Specific Binary Packages Release
-
-          This release contains pre-built wheels for packages that cannot
-          be distributed as manylinux wheels:
-
-          - **gssapi**: Generic Security Service Application Program Interface
-          - **netifaces**: Portable network interface information
-          - **python-qpid-proton**: Python bindings for Apache Qpid Proton
-
-          ## Built for:
-          - Python 3.12 and 3.13
-          - Linux (ubuntu-latest)
-          - macOS (macos-latest)
-
-          ## Installation
-          Download the appropriate wheel for your platform and Python version,
-          then install with:
-          \`\`\`
-          pip install <wheel-file>
-          \`\`\`
-
-          Generated on: $(date)
-          EOF
-
-          # Create the release
-          gh release create "$RELEASE_TAG" \
-            --title "Binary Packages - $(date +'%Y-%m-%d %H:%M:%S')" \
-            --notes-file release-notes.md \
-            release-wheels/*.whl
+        run: ./scripts/create-release.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
