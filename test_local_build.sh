@@ -6,59 +6,20 @@ set -e
 
 echo "=== Local Package Build Validation ==="
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Create temporary directories
-mkdir -p /tmp/test-build/{tarballs,wheels}
+mkdir -p /tmp/test-build
 cd /tmp/test-build
 
-# Packages to test
-packages=("gssapi" "netifaces" "python-qpid-proton")
-
 echo "Installing build dependencies..."
-pip install pip setuptools wheel build Cython -U
+# Use the shared dependency installation script
+source "$SCRIPT_DIR/scripts/install-dependencies.sh"
 
 echo "Testing package builds..."
-
-for package in "${packages[@]}"
-do
-    echo ""
-    echo "--- Testing $package ---"
-    
-    # Download source
-    echo "Downloading $package source..."
-    pip download --no-deps --no-binary :all: "$package" -d tarballs
-    
-    # Extract
-    package_path="${package//-/_}"
-    tarball=$(find tarballs -name "${package_path}*.tar.gz" | head -1)
-    
-    if [ -z "$tarball" ]; then
-        echo "ERROR: Could not find tarball for $package"
-        continue
-    fi
-    
-    echo "Extracting $tarball..."
-    tar -xzf "$tarball" -C tarballs
-    
-    # Build
-    build_dir=$(find tarballs -maxdepth 1 -type d -name "${package_path}-*" | head -1)
-    
-    if [ -z "$build_dir" ]; then
-        echo "ERROR: Could not find build directory for $package"
-        continue
-    fi
-    
-    echo "Building wheel in $build_dir..."
-    cd "$build_dir"
-    
-    if python -m build -w; then
-        echo "SUCCESS: Built wheel for $package"
-        mv dist/*.whl ../../wheels/
-    else
-        echo "ERROR: Failed to build wheel for $package"
-    fi
-    
-    cd /tmp/test-build
-done
+# Use the shared build script
+source "$SCRIPT_DIR/scripts/build-wheels.sh"
 
 echo ""
 echo "=== Build Results ==="

@@ -31,51 +31,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install system dependencies
-        run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            sudo apt update
-            sudo apt install -y python3-dev libkrb5-dev \
-              build-essential cmake libsasl2-dev
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            brew reinstall krb5
-            brew install cmake cyrus-sasl
-          fi
+        run: ./scripts/install-dependencies.sh ${{ matrix.os }}
 
       - name: Install Python dependencies
         run: |
           pip install pip setuptools wheel build Cython -U
 
       - name: Build wheels
-        run: |
-          # Packages list to build
-          packages=("gssapi" "netifaces" "python-qpid-proton")
-          mkdir -p tarballs
-          mkdir -p wheels
-
-          # Loop through each package
-          for package in "${packages[@]}"
-          do
-              echo "Building $package..."
-              # Download the package without dependencies
-              pip download --no-deps --no-binary :all: $package -d tarballs
-
-              # Extract the downloaded tar.gz file
-              package_path="${package//-/_}"
-              tar -xvf tarballs/${package_path}*.tar.gz -C tarballs
-
-              # Build the wheel
-              cd tarballs/${package_path}-*/
-              python -m build -w
-
-              # Move the wheel to the wheels directory
-              mv dist/* ../../wheels/
-              cd ../..
-
-              echo "Finished building $package"
-          done
-
-          echo "Built wheels:"
-          ls -la wheels/
+        run: ./scripts/build-wheels.sh
 
       - name: Archive wheels
         uses: actions/upload-artifact@v4
@@ -154,9 +117,6 @@ jobs:
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
-        if: >
-          github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/master'
         with:
           path: ./site
 
@@ -164,9 +124,6 @@ jobs:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: combine-artifacts
-    if: >
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/master'
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
