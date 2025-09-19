@@ -20,6 +20,13 @@ if [ -z "$GITHUB_REPO" ]; then
     exit 1
 fi
 
+# Check for required dependencies
+if ! command -v jq &> /dev/null; then
+    echo "ERROR: jq is required for JSON parsing but not installed"
+    echo "Please install jq: sudo apt-get install jq (Ubuntu/Debian) or brew install jq (macOS)"
+    exit 1
+fi
+
 echo "Downloading existing artifacts from GitHub releases..."
 echo "Repository: $GITHUB_REPO"
 echo "Release: $RELEASE_TAG"
@@ -49,8 +56,8 @@ if echo "$release_data" | grep -q '"message": "Not Found"'; then
     exit 1
 fi
 
-# Extract release assets
-assets=$(echo "$release_data" | grep -o '"browser_download_url": "[^"]*\.whl"' | cut -d'"' -f4)
+# Extract release assets using jq for robust JSON parsing
+assets=$(echo "$release_data" | jq -r '.assets[] | select(.browser_download_url | test("\\.whl$")) | .browser_download_url')
 
 if [ -z "$assets" ]; then
     echo "No wheel assets found in release $RELEASE_TAG"
@@ -75,15 +82,54 @@ while IFS= read -r asset_url; do
     wheel_file=$(basename "$asset_url")
     target_path="$WHEELS_DIR/$wheel_file"
 
-    # Check if this wheel matches any of our target packages
+    # Check if this wheel matches any of our target packages AND is compatible with our platform and Python version
     package_match=false
     for package in "${packages[@]}"; do
         package_name=$(echo "$package" | sed 's/[<>=!].*//')
         wheel_name="${package_name//-/_}"
 
-        if echo "$wheel_file" | grep -q "^${wheel_name}-"; then
-            package_match=true
-            break
+        # Extract wheel tags: name-version-pyver-abi-platform.whl
+        # Example: my_package-1.0.0-py3-none-any.whl
+        if [[ "$wheel_file" =~ ^${wheel_name}-.*-(py[23][0-9]?|py3|py2|py2\.py3|cp[0-9]+)-([^-]+)-([^.]+)\.whl$ ]]; then
+            python_tag="${BASH_REMATCH[1]}"
+            # abi_tag="${BASH_REMATCH[2]}" - not currently used in compatibility check
+            platform_tag="${BASH_REMATCH[3]}"
+
+            # Get current python version info
+            current_python_major=$(python3 -c 'import sys; print(sys.version_info.major)')
+            current_python_minor=$(python3 -c 'import sys; print(sys.version_info.minor)')
+            current_python_tag="py${current_python_major}"
+            current_cpython_tag="cp${current_python_major}${current_python_minor}"
+
+            # Get current platform tag (simplified - covers most common cases)
+            current_platform_tag=$(python3 -c 'import sysconfig; print(sysconfig.get_platform().replace("-", "_").replace(".", "_"))')
+
+            # Check Python compatibility
+            python_compatible=false
+            if [[ "$python_tag" == "py2.py3" ]] || \
+               [[ "$python_tag" == "py3" ]] || \
+               [[ "$python_tag" == "$current_python_tag" ]] || \
+               [[ "$python_tag" == "$current_cpython_tag" ]]; then
+                python_compatible=true
+            fi
+
+            # Check platform compatibility (accept "any" platform or matching platform)
+            platform_compatible=false
+            if [[ "$platform_tag" == "any" ]] || [[ "$platform_tag" == "$current_platform_tag" ]]; then
+                platform_compatible=true
+            fi
+
+            if [[ "$python_compatible" == "true" ]] && [[ "$platform_compatible" == "true" ]]; then
+                package_match=true
+                break
+            fi
+        else
+            # Fallback to simple prefix matching for non-standard wheel names
+            if echo "$wheel_file" | grep -q "^${wheel_name}-"; then
+                echo "Warning: Using fallback matching for non-standard wheel: $wheel_file"
+                package_match=true
+                break
+            fi
         fi
     done
 
