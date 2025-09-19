@@ -9,16 +9,9 @@ GITHUB_TOKEN=${GITHUB_TOKEN:-""}  # Optional GitHub token for private repos or h
 RELEASE_TAG=${RELEASE_TAG:-"latest"}  # Release tag to download from, "latest" for most recent
 WHEELS_DIR="wheels"
 FORCE_DOWNLOAD=${FORCE_DOWNLOAD:-false}
-TEMP_DIR=$(mktemp -d)
 
 # Package list - should match the build script
 PACKAGES_TO_BUILD=${PACKAGES_TO_BUILD:-"gssapi==1.9.0 netifaces==0.11.0 python-qpid-proton==0.40.0 gssapi netifaces python-qpid-proton"}
-
-# Cleanup function
-cleanup() {
-    rm -rf "$TEMP_DIR"
-}
-trap cleanup EXIT
 
 # Validate configuration
 if [ -z "$GITHUB_REPO" ]; then
