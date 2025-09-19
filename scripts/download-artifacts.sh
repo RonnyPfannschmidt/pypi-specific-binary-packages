@@ -78,27 +78,27 @@ while IFS= read -r asset_url; do
     if [ -z "$asset_url" ]; then
         continue
     fi
-    
+
     wheel_file=$(basename "$asset_url")
     target_path="$WHEELS_DIR/$wheel_file"
-    
+
     # Check if this wheel matches any of our target packages
     package_match=false
     for package in "${packages[@]}"; do
         package_name=$(echo "$package" | sed 's/[<>=!].*//')
         wheel_name="${package_name//-/_}"
-        
+
         if echo "$wheel_file" | grep -q "^${wheel_name}-"; then
             package_match=true
             break
         fi
     done
-    
+
     if [ "$package_match" = "false" ]; then
         echo "Skipping $wheel_file (not in target package list)"
         continue
     fi
-    
+
     if [ "$FORCE_DOWNLOAD" = "true" ] || [ ! -f "$target_path" ]; then
         echo "Downloading: $wheel_file"
         if curl -L -s "${CURL_HEADERS[@]}" "$asset_url" -o "$target_path"; then

@@ -19,49 +19,49 @@ mkdir -p wheels
 for package in "${packages[@]}"
 do
     echo "Processing $package..."
-    
+
     # Extract package name (remove version constraints)
     package_name=$(echo "$package" | sed 's/[<>=!].*//')
     wheel_name="${package_name//-/_}"
-    
+
     # Check if wheel already exists
     existing_wheel=$(find wheels -name "${wheel_name}*.whl" 2>/dev/null | head -1 || true)
     if [ -n "$existing_wheel" ] && [ "$FORCE_BUILD" != "true" ]; then
         echo "  Skipping $package - wheel already exists: $(basename "$existing_wheel")"
         continue
     fi
-    
+
     echo "  Building $package..."
-    
+
     # Download the package without dependencies
     pip download --no-deps --no-binary :all: "$package" -d tarballs
-    
+
     # Extract the downloaded tar.gz file
     package_path="${package//-/_}"
-    
+
     # Find the tarball (handle case where multiple versions might exist)
     tarball=$(find tarballs -name "${package_path}*.tar.gz" | head -1)
-    
+
     if [ -z "$tarball" ]; then
         echo "ERROR: Could not find tarball for $package"
         continue
     fi
-    
+
     echo "Extracting $tarball..."
     tar -xvf "$tarball" -C tarballs
-    
+
     # Find the extracted directory
     build_dir=$(find tarballs -maxdepth 1 -type d -name "${package_path}-*" | head -1)
-    
+
     if [ -z "$build_dir" ]; then
         echo "ERROR: Could not find build directory for $package"
         continue
     fi
-    
+
     # Build the wheel
     echo "Building wheel in $build_dir..."
     cd "$build_dir"
-    
+
     if python -m build -w; then
         echo "SUCCESS: Built wheel for $package"
         # Move the wheel to the wheels directory
@@ -69,10 +69,10 @@ do
     else
         echo "ERROR: Failed to build wheel for $package"
     fi
-    
+
     # Return to original directory
     cd - > /dev/null
-    
+
     echo "Finished building $package"
 done
 

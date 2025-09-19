@@ -9,7 +9,7 @@ This repository automatically builds binary wheels for Python packages that cann
 ## Supported Packages
 
 - **gssapi**: Generic Security Service Application Program Interface
-- **netifaces**: Portable network interface information  
+- **netifaces**: Portable network interface information
 - **python-qpid-proton**: Python bindings for Apache Qpid Proton
 
 ## Build Matrix
